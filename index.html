@@ -72,19 +72,11 @@
           <div class="section-head"><span class="section-num">1 / 7</span><h2>Your contact details</h2></div>
           <p class="section-intro">You'll be the main contact for this submission — we'll email you with the outcome after peer review.</p>
 
-          <div class="field-row">
-            <div class="field">
-              <label class="q" for="your_name">Your name<span class="req">*</span></label>
-              <p class="hint">Forename and surname.</p>
-              <input type="text" id="your_name" name="your_name" required autocomplete="name">
-              <p class="err-msg">Enter your name.</p>
-            </div>
-            <div class="field">
-              <label class="q" for="submission_date">Submission date<span class="req">*</span></label>
-              <p class="hint">Defaults to today — change it if needed.</p>
-              <input type="date" id="submission_date" name="submission_date" required>
-              <p class="err-msg">Enter a date.</p>
-            </div>
+          <div class="field">
+            <label class="q" for="your_name">Your name<span class="req">*</span></label>
+            <p class="hint">Forename and surname.</p>
+            <input type="text" id="your_name" name="your_name" required autocomplete="name">
+            <p class="err-msg">Enter your name.</p>
           </div>
 
           <div class="field">
@@ -92,6 +84,8 @@
             <input type="email" id="your_email" name="your_email" required autocomplete="email">
             <p class="err-msg">Enter a valid email address.</p>
           </div>
+
+          <input type="hidden" id="submission_date" name="submission_date">
         </section>
 
         <!-- 2: Presenter -->

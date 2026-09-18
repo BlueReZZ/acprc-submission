@@ -47,9 +47,6 @@
 
   var form = document.getElementById("abstractForm");
   var dateField = document.getElementById("submission_date");
-  if (!dateField.value) {
-    dateField.value = new Date().toISOString().slice(0, 10);
-  }
 
   // Other theme reveal
   var otherThemeField = document.getElementById("otherThemeField");
@@ -187,7 +184,6 @@
       localStorage.removeItem(STORAGE_KEY);
     } catch (e) {}
     form.reset();
-    dateField.value = new Date().toISOString().slice(0, 10);
     otherThemeField.hidden = true;
     otherThemeInput.required = false;
     refreshBudget();
@@ -215,6 +211,7 @@
   form.addEventListener("submit", function (e) {
     e.preventDefault();
     confirmPanel.classList.remove("show");
+    dateField.value = new Date().toISOString().slice(0, 10);
     var firstInvalid = null;
     var invalidCount = 0;
 
@@ -227,7 +224,7 @@
     }
 
     [
-      "your_name", "your_email", "submission_date", "presenter_name", "presenter_job_title",
+      "your_name", "your_email", "presenter_name", "presenter_job_title",
       "presenter_workplace", "presenter_email", "presenter_phone", "co_authors",
       "approval_details", "references"
     ].forEach(function (id) {

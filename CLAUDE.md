@@ -58,8 +58,13 @@ The written submission guidance also comes from the live ACPRC page:
 
 ### Field list, in order (matches the live form exactly)
 
-1. **Your contact details** — your name, your email, submission date
-   (defaults to today)
+1. **Your contact details** — your name, your email. Submission date is a
+   hidden field (`#submission_date`), not shown in the UI — it's stamped
+   with the current date at submit time (`js/form.js`, in the `submit`
+   handler), not on page load. The live Monday form exposes this as a
+   visible date picker defaulting to today; the committee confirmed that's
+   unwanted here — it should just record the actual submission date
+   automatically.
 2. **Presenter's details** — name, job title, place of work, email,
    phone (not published, emergencies only), co-author(s) names & places
    of work
