@@ -304,3 +304,20 @@ verdict the committee actually asked for.
   group wraps onto multiple lines (only visible with the 9-option Theme
   selector, not the shorter Category/Yes-No groups). Fixed in
   `css/style.css` under `.chip-grid`.
+
+## Known, accepted lint warnings (do not "fix" these)
+
+- **Supabase's database linter flags `submissions_for_review` as a
+  "Security Definer View."** This is intentional, not an oversight —
+  see the comment directly above that view in
+  `supabase/migrations/0001_init_schema.sql` for the full reasoning.
+  Short version: reviewers have no RLS grant on `submissions` at all, so
+  the view has to bypass RLS internally to hand them a redacted subset
+  of rows they otherwise can't see — adding `security_invoker = true`
+  here (the linter's implied fix) would make every reviewer see zero
+  submissions, not fewer columns. Acknowledge/dismiss this specific
+  finding in the Supabase dashboard rather than changing the view. (The
+  *other* two views originally had this same pattern by mistake, not by
+  design — that was a real bug, fixed in
+  `supabase/migrations/0002_fix_view_privileges.sql`; don't confuse the
+  two.)

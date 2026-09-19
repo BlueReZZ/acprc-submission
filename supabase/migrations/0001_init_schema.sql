@@ -198,6 +198,20 @@ $$;
 -- Deliberately excludes every identifying field, including
 -- co_authors (see plan notes: free text mixes name + workplace,
 -- can't be safely partially redacted).
+--
+-- Supabase's database linter will flag this as a "Security Definer
+-- View" — that's EXPECTED here, not an oversight, and must NOT be
+-- "fixed" by adding security_invoker = true. Reviewers have no RLS
+-- grant on `submissions` at all (see submissions_admin_select/update
+-- below), so a security_invoker version of this view would return
+-- zero rows to every reviewer — there'd be nothing left to review.
+-- RLS is row-level only, not column-level: the only way to hand a
+-- role a redacted subset of a table it otherwise can't see at all is
+-- exactly this pattern (owner-privileged view + hardcoded column
+-- allowlist + row filter). The compensating controls that stand in
+-- for the RLS this view intentionally bypasses are the revoke/grant
+-- pair immediately below — acknowledge/dismiss this specific lint
+-- finding in the Supabase dashboard rather than changing the view.
 -- ============================================================
 create view submissions_for_review as
 select
