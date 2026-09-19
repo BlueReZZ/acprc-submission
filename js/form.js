@@ -1,26 +1,9 @@
+import { CATEGORIES, THEMES, SUBHEADING_WORDS, BODY_LIMIT, TITLE_LIMIT, wordCount } from "./validation.js";
+
 (function () {
   "use strict";
 
-  var CATEGORIES = ["Research", "Education", "Clinical Practice", "Leadership"];
-  var THEMES = [
-    "Critical Care", "Long Term Conditions", "Home Ventilation", "Surgery",
-    "Paediatrics", "Education", "Professionalism and fundamentals of practice",
-    "Leadership & Innovation", "Other"
-  ];
-  var SUBHEADING_WORDS = 9; // "Background" + "Aim(s)/ Objectives" + "Methods" + "Results" + "Conclusions / Implications for practice"
-  var BODY_LIMIT = 400;
-  var TITLE_LIMIT = 20;
   var STORAGE_KEY = "acprc_abstract_draft_v1";
-
-  function wordCount(str) {
-    if (!str) return 0;
-    var tokens = str.trim().split(/\s+/);
-    var n = 0;
-    for (var i = 0; i < tokens.length; i++) {
-      if (/[a-zA-Z0-9]/.test(tokens[i])) n++;
-    }
-    return n;
-  }
 
   function buildChipGroup(container, name, options) {
     options.forEach(function (opt, i) {
@@ -46,7 +29,6 @@
   buildChipGroup(document.getElementById("prevAnyGroup"), "prev_any", ["Yes", "No"]);
 
   var form = document.getElementById("abstractForm");
-  var dateField = document.getElementById("submission_date");
 
   // Other theme reveal
   var otherThemeField = document.getElementById("otherThemeField");
@@ -105,7 +87,7 @@
 
   // ---------- Autosave (this browser only) ----------
   var FIELD_IDS = [
-    "your_name", "your_email", "submission_date", "presenter_name", "presenter_job_title",
+    "your_name", "your_email", "presenter_name", "presenter_job_title",
     "presenter_workplace", "presenter_email", "presenter_phone", "co_authors", "other_theme",
     "abstract_title", "background", "aims", "methods", "results", "conclusions",
     "approval_details", "references"
@@ -194,6 +176,9 @@
   // ---------- Validation & submit preview ----------
   var errorBanner = document.getElementById("errorBanner");
   var confirmPanel = document.getElementById("confirmPanel");
+  var defaultErrorText = errorBanner.textContent;
+  var submitBtn = form.querySelector("button.submit");
+  var submitBtnDefaultText = submitBtn.textContent;
 
   function setInvalid(el, invalid) {
     el.classList.toggle("invalid", invalid);
@@ -208,10 +193,10 @@
     if (msg) msg.classList.toggle("show", invalid);
   }
 
-  form.addEventListener("submit", function (e) {
+  form.addEventListener("submit", async function (e) {
     e.preventDefault();
     confirmPanel.classList.remove("show");
-    dateField.value = new Date().toISOString().slice(0, 10);
+    errorBanner.textContent = defaultErrorText;
     var firstInvalid = null;
     var invalidCount = 0;
 
@@ -288,6 +273,63 @@
 
     errorBanner.classList.remove("show");
     saveDraft();
+
+    var payload = {
+      your_name: document.getElementById("your_name").value.trim(),
+      your_email: document.getElementById("your_email").value.trim(),
+      presenter_name: document.getElementById("presenter_name").value.trim(),
+      presenter_job_title: document.getElementById("presenter_job_title").value.trim(),
+      presenter_workplace: document.getElementById("presenter_workplace").value.trim(),
+      presenter_email: document.getElementById("presenter_email").value.trim(),
+      presenter_phone: document.getElementById("presenter_phone").value.trim(),
+      co_authors: document.getElementById("co_authors").value.trim(),
+      category: categoryChecked.value,
+      theme: themeChecked.value,
+      other_theme: themeChecked.value === "Other" ? otherThemeInput.value.trim() : "",
+      abstract_title: titleInput.value.trim(),
+      background: document.getElementById("background").value.trim(),
+      aims: document.getElementById("aims").value.trim(),
+      methods: document.getElementById("methods").value.trim(),
+      results: document.getElementById("results").value.trim(),
+      conclusions: document.getElementById("conclusions").value.trim(),
+      approval_details: document.getElementById("approval_details").value.trim(),
+      references: document.getElementById("references").value.trim(),
+      prev_first_author: prevFirst.value === "Yes",
+      prev_any: prevAny.value === "Yes",
+      consent: consent.checked,
+      hp_website: document.getElementById("hp_website").value
+    };
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Submitting…";
+
+    var submitOk = false;
+    try {
+      var response = await fetch("/api/submit-abstract", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      submitOk = response.ok;
+    } catch (err) {
+      submitOk = false;
+    }
+
+    submitBtn.disabled = false;
+    submitBtn.textContent = submitBtnDefaultText;
+
+    if (!submitOk) {
+      errorBanner.textContent = "Something went wrong sending your submission. Please try again — your draft is still saved.";
+      errorBanner.classList.add("show");
+      errorBanner.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch (err) {
+      /* storage unavailable, ignore */
+    }
 
     var summary = document.getElementById("confirmSummary");
     summary.innerHTML = "";

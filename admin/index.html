@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin — ACPRC Annual Conference 2027</title>
+  <meta name="description" content="Screening, programme and user admin for the ACPRC Annual Conference abstract system.">
+  <link rel="icon" type="image/png" sizes="32x32" href="../assets/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="../assets/favicon-16.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,400;0,700;0,900;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="../css/admin.css">
+</head>
+<body>
+  <div class="site-header__bar">
+    <div class="site-header__bar-inner">
+      <span>Association of Chartered Physiotherapists in Respiratory Care</span>
+      <a href="https://www.acprc.org.uk/annual-conference/submission-details/abstract-submission/">acprc.org.uk</a>
+    </div>
+  </div>
+
+  <header class="site-header">
+    <div class="site-header-inner">
+      <img src="../assets/logo.png" alt="ACPRC logo" width="56" height="56">
+      <div class="site-header-titles">
+        <p class="eyebrow">Annual Conference 2027</p>
+        <h1>Admin</h1>
+      </div>
+    </div>
+  </header>
+
+  <main id="main">
+    <div class="wrap">
+      <div class="dash-toolbar" style="justify-content: flex-end;">
+        <button type="button" class="dash-signout" id="signOutBtn">Log out</button>
+      </div>
+
+      <section class="card">
+        <div class="section-head"><h2>Screening queue</h2></div>
+        <p class="section-intro">Confirm each submission is real, has an appropriate ethics/governance or R&amp;D/audit approval statement (or a justification for none), and meets the 400-word limit, before it becomes visible to reviewers.</p>
+
+        <div class="dash-toolbar">
+          <select id="screeningStatusFilter">
+            <option value="pending">Pending</option>
+            <option value="passed">Passed</option>
+            <option value="failed">Failed</option>
+            <option value="">All</option>
+          </select>
+        </div>
+
+        <div id="screeningList"><p class="dash-empty">Loading&hellip;</p></div>
+      </section>
+
+      <section class="card">
+        <div class="section-head"><h2>Programme</h2></div>
+        <p class="section-intro">Filter and sort screened, reviewed submissions, and record each one's final outcome and presentation format.</p>
+
+        <div class="dash-toolbar">
+          <select id="progCategoryFilter"><option value="">All categories</option></select>
+          <select id="progThemeFilter"><option value="">All themes</option></select>
+          <select id="progSort">
+            <option value="score_desc">Highest review score first</option>
+            <option value="score_asc">Lowest review score first</option>
+            <option value="created_asc">Oldest submitted first</option>
+          </select>
+        </div>
+
+        <div id="programmeList"><p class="dash-empty">Loading&hellip;</p></div>
+      </section>
+
+      <section class="card">
+        <div class="section-head"><h2>Invite a reviewer or admin</h2></div>
+        <p class="section-intro">There's no self-signup — everyone logs in with a magic-link email, but only after being invited here.</p>
+
+        <div class="invite-form">
+          <div class="field">
+            <label class="q" for="inviteEmail">Email</label>
+            <input type="email" id="inviteEmail">
+          </div>
+          <div class="field">
+            <label class="q" for="inviteName">Full name</label>
+            <input type="text" id="inviteName">
+          </div>
+          <div class="field">
+            <label class="q" for="inviteRole">Role</label>
+            <select id="inviteRole">
+              <option value="reviewer">Reviewer</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+          <button type="button" class="btn-small" id="inviteBtn">Send invite</button>
+        </div>
+        <p class="dash-status-msg" id="inviteStatus"></p>
+      </section>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="site-footer-inner">
+      <span>&copy; <span id="year"></span> ACPRC — Association of Chartered Physiotherapists in Respiratory Care</span>
+    </div>
+  </footer>
+
+  <script>document.getElementById("year").textContent = new Date().getFullYear();</script>
+  <script type="module" src="../js/admin.js"></script>
+</body>
+</html>

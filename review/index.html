@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Review submissions — ACPRC Annual Conference 2027</title>
+  <meta name="description" content="Reviewer dashboard for the ACPRC Annual Conference abstract system.">
+  <link rel="icon" type="image/png" sizes="32x32" href="../assets/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="../assets/favicon-16.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,400;0,700;0,900;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="../css/admin.css">
+</head>
+<body>
+  <div class="site-header__bar">
+    <div class="site-header__bar-inner">
+      <span>Association of Chartered Physiotherapists in Respiratory Care</span>
+      <a href="https://www.acprc.org.uk/annual-conference/submission-details/abstract-submission/">acprc.org.uk</a>
+    </div>
+  </div>
+
+  <header class="site-header">
+    <div class="site-header-inner">
+      <img src="../assets/logo.png" alt="ACPRC logo" width="56" height="56">
+      <div class="site-header-titles">
+        <p class="eyebrow">Annual Conference 2027</p>
+        <h1>Reviewer dashboard</h1>
+      </div>
+    </div>
+  </header>
+
+  <main id="main">
+    <div class="wrap">
+      <section class="card">
+        <div class="section-head"><h2>Submissions available to review</h2></div>
+        <p class="section-intro">Author, presenter and workplace details are hidden — review is blind. Pick any submission you'd like to review; your verdict and comments are only ever visible to you and the committee.</p>
+
+        <div class="dash-toolbar">
+          <select id="filterCategory"><option value="">All categories</option></select>
+          <select id="filterTheme"><option value="">All themes</option></select>
+          <span class="spacer"></span>
+          <button type="button" class="dash-signout" id="signOutBtn">Log out</button>
+        </div>
+
+        <div id="submissionList"><p class="dash-empty">Loading…</p></div>
+      </section>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="site-footer-inner">
+      <span>&copy; <span id="year"></span> ACPRC — Association of Chartered Physiotherapists in Respiratory Care</span>
+    </div>
+  </footer>
+
+  <script>document.getElementById("year").textContent = new Date().getFullYear();</script>
+  <script type="module" src="../js/review.js"></script>
+</body>
+</html>

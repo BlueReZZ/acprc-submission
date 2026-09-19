@@ -657,3 +657,12 @@ button.submit:focus-visible {
     flex-direction: column;
   }
 }
+
+/* spam honeypot — off-screen, not display:none (some bots skip hidden fields) */
+.hp-field {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}

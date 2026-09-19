@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Log in — ACPRC Annual Conference 2027</title>
+  <meta name="description" content="Reviewer and admin log in for the ACPRC Annual Conference abstract system.">
+  <link rel="icon" type="image/png" sizes="32x32" href="../assets/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="../assets/favicon-16.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,400;0,700;0,900;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+  <div class="site-header__bar">
+    <div class="site-header__bar-inner">
+      <span>Association of Chartered Physiotherapists in Respiratory Care</span>
+      <a href="https://www.acprc.org.uk/annual-conference/submission-details/abstract-submission/">acprc.org.uk</a>
+    </div>
+  </div>
+
+  <header class="site-header">
+    <div class="site-header-inner">
+      <img src="../assets/logo.png" alt="ACPRC logo" width="56" height="56">
+      <div class="site-header-titles">
+        <p class="eyebrow">Annual Conference 2027</p>
+        <h1>Reviewer &amp; admin log in</h1>
+      </div>
+    </div>
+  </header>
+
+  <main id="main">
+    <div class="wrap" style="max-width: 480px;">
+      <section class="card">
+        <div class="section-head"><h2>Log in</h2></div>
+        <p class="section-intro" id="introText">Enter the email address you were invited with — we'll send you a one-time login link. No password needed.</p>
+
+        <div class="field" id="emailStep">
+          <label class="q" for="login_email">Email address</label>
+          <input type="email" id="login_email" name="login_email" autocomplete="email" required>
+          <p class="err-msg" id="loginErr"></p>
+        </div>
+
+        <div class="submit-zone">
+          <button type="button" class="submit" id="sendLinkBtn">Send me a login link</button>
+        </div>
+
+        <p class="submit-note" id="sentMsg" hidden>Check your email for a login link. You can close this tab.</p>
+      </section>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="site-footer-inner">
+      <span>&copy; <span id="year"></span> ACPRC — Association of Chartered Physiotherapists in Respiratory Care</span>
+    </div>
+  </footer>
+
+  <script>document.getElementById("year").textContent = new Date().getFullYear();</script>
+  <script type="module" src="../js/auth-login.js"></script>
+</body>
+</html>

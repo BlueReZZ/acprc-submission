@@ -83,6 +83,11 @@
 
       <form id="abstractForm" novalidate>
 
+        <div class="hp-field" aria-hidden="true">
+          <label for="hp_website">Leave this field blank</label>
+          <input type="text" id="hp_website" name="hp_website" tabindex="-1" autocomplete="off">
+        </div>
+
         <!-- 1: Contact -->
         <section class="card">
           <div class="section-head"><span class="section-num">1 / 7</span><h2>Your contact details</h2></div>
@@ -101,7 +106,6 @@
             <p class="err-msg">Enter a valid email address.</p>
           </div>
 
-          <input type="hidden" id="submission_date" name="submission_date">
         </section>
 
         <!-- 2: Presenter -->
@@ -313,6 +317,6 @@
   <div class="toast" id="toast">Draft saved</div>
 
   <script>document.getElementById("year").textContent = new Date().getFullYear();</script>
-  <script src="js/form.js"></script>
+  <script type="module" src="js/form.js"></script>
 </body>
 </html>
