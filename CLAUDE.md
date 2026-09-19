@@ -124,7 +124,7 @@ css/style.css                           hand-written stylesheet using ACPRC's re
 css/admin.css                           dashboard/table layout for admin + review pages, built on style.css's tokens
 js/form.js                              public form's client-side behaviour (see below)
 js/validation.js                        shared, DOM-free submission rules (word limits, enums) — imported by js/form.js AND api/submit-abstract.mjs, so the two copies can't drift
-js/supabaseClient.js                    configured Supabase client (anon key — safe to ship; RLS does the real protection)
+js/supabaseClient.js                    configured Supabase client (publishable key — safe to ship; RLS does the real protection)
 js/auth.js                              shared session/role guard + sign-out, used by admin.js and review.js
 js/auth-login.js                        login page behaviour (magic-link send + redirect-on-session)
 js/admin.js                             admin page behaviour (screening, programme, invite)
@@ -132,6 +132,7 @@ js/review.js                            reviewer page behaviour
 api/submit-abstract.mjs                 serverless function (Vercel): the ONLY way a submission is created; re-validates everything server-side
 api/invite-user.mjs                     serverless function (Vercel): admin-only, provisions a new admin/reviewer account
 supabase/migrations/0001_init_schema.sql   full schema: tables, RLS policies, views, RPC functions
+supabase/migrations/0002_fix_view_privileges.sql   fixes a view-privilege bug found after first deploying 0001 (see "Backend")
 assets/                                 ACPRC's real logo + favicons
 ```
 
@@ -225,15 +226,21 @@ verdict the committee actually asked for.
 
 **Deploying this for real** (one-time, manual — not codeable):
 1. Create a free Supabase project; run `supabase/migrations/0001_init_schema.sql`
-   against it (SQL editor or `supabase db push`); note the project URL,
-   anon key, and service-role key.
-2. Replace the placeholder `SUPABASE_URL`/`SUPABASE_ANON_KEY` constants in
-   `js/supabaseClient.js` with the real ones (the anon key is safe to
-   commit — RLS is what actually protects the data).
+   then `0002_fix_view_privileges.sql` against it (SQL editor or
+   `supabase db push`); note the project URL, publishable key, and
+   secret key (Settings → API → API Keys — Supabase's current
+   recommended key format, replacing the older anon/service_role JWTs;
+   independently revocable rather than sharing one project-wide JWT
+   secret, otherwise behaves identically for RLS purposes).
+2. Replace the placeholder `SUPABASE_URL`/`SUPABASE_PUBLISHABLE_KEY`
+   constants in `js/supabaseClient.js` with the real ones (the
+   publishable key is safe to commit — RLS is what actually protects the
+   data).
 3. Create a Vercel project, import this repo from GitHub
    (`BlueReZZ/acprc-submission`), and set `SUPABASE_URL` +
-   `SUPABASE_SERVICE_ROLE_KEY` as server-only environment variables (used
-   only by the two files under `api/`, never shipped to the browser).
+   `SUPABASE_SERVICE_ROLE_KEY` (the secret key) as server-only
+   environment variables (used only by the two files under `api/`, never
+   shipped to the browser).
 4. **Bootstrap the first admin** by hand: invite one real email via the
    Supabase dashboard's Auth → Invite user, then run one `insert into
    profiles (id, email, full_name, role) values (...)` in the SQL editor —

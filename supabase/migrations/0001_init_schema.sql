@@ -209,16 +209,34 @@ select
 from submissions s
 where s.screening_status = 'passed';
 
+-- Supabase grants SELECT on every new object to anon/authenticated/
+-- service_role by default (that's why RLS, not GRANT, is the real gate
+-- on ordinary tables) — but this is a plain, owner-privileged view, so
+-- without an explicit REVOKE here, an anonymous caller (just the public
+-- anon key, no login at all) could read every passed submission's
+-- abstract text straight off this view. Reviewers still need to log in;
+-- the public does not get a free read.
+revoke all on submissions_for_review from anon;
 grant select on submissions_for_review to authenticated;
 
 -- ============================================================
 -- Verdict aggregation for the programme view. accept = +1,
 -- maybe = 0, reject = -1, summed (not averaged) per submission,
--- alongside raw counts. Admin-only in practice: base-table RLS
--- means a reviewer querying this still yields zero submission
--- rows joined.
+-- alongside raw counts.
+--
+-- security_invoker = true is essential here: without it, a plain view
+-- runs with its OWNER's privileges and silently bypasses RLS on the
+-- tables it reads (exactly the trick submissions_for_review relies on
+-- deliberately, above) — which for this pair of views would mean any
+-- authenticated reviewer, not just admin, could read every submission's
+-- full unblinded data and every other reviewer's verdicts by querying
+-- them directly. security_invoker makes Postgres re-apply RLS as the
+-- calling user, so a non-admin querying these gets zero rows, same as
+-- querying `submissions`/`reviews` directly.
 -- ============================================================
-create view submission_review_summary as
+create view submission_review_summary
+with (security_invoker = true)
+as
 select
   submission_id,
   count(*) as review_count,
@@ -228,10 +246,14 @@ select
   sum(case verdict when 'accept' then 1 when 'maybe' then 0 when 'reject' then -1 end) as review_score
 from reviews
 group by submission_id;
+revoke all on submission_review_summary from anon;
 
-create view submissions_with_review_summary as
+create view submissions_with_review_summary
+with (security_invoker = true)
+as
 select s.*, rs.review_count, rs.tick_count, rs.maybe_count, rs.cross_count, rs.review_score
 from submissions s
 left join submission_review_summary rs on rs.submission_id = s.id;
 
+revoke all on submissions_with_review_summary from anon;
 grant select on submissions_with_review_summary to authenticated;
