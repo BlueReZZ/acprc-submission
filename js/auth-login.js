@@ -17,6 +17,24 @@ function clearError() {
   loginErr.classList.remove("show");
 }
 
+// Supabase's AuthApiError carries a machine-readable `code` (mirrors the
+// API's error_code) on recent supabase-js versions, plus always a
+// `status` and `message` — check all three so this keeps working even
+// if `code` isn't present on whatever version esm.sh serves.
+function describeOtpError(error) {
+  var code = error.code || "";
+  var status = error.status;
+  var message = (error.message || "").toLowerCase();
+
+  if (code === "over_email_send_rate_limit" || status === 429) {
+    return "Too many login attempts right now. Wait a few minutes and try again.";
+  }
+  if (code === "otp_disabled" || message.indexOf("signups not allowed") !== -1) {
+    return "That email hasn't been invited yet. Contact the committee for an invite.";
+  }
+  return "Couldn't send a login link. Check the email address and try again.";
+}
+
 async function redirectSignedInUser() {
   var sessionResult = await supabase.auth.getSession();
   var session = sessionResult.data && sessionResult.data.session;
@@ -73,7 +91,7 @@ sendBtn.addEventListener("click", async function () {
   sendBtn.textContent = "Send me a login link";
 
   if (result.error) {
-    showError("Couldn't send a login link. Check the email address and try again.");
+    showError(describeOtpError(result.error));
     return;
   }
 
