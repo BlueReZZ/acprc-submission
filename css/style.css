@@ -214,6 +214,15 @@ details.guidance[open] summary::after {
   color: var(--ink-soft);
   line-height: 1.6;
 }
+.guidance-body h4 {
+  margin: 16px 0 6px;
+  color: var(--navy);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+.guidance-body h4:first-child {
+  margin-top: 0;
+}
 .guidance-body ul {
   margin: 8px 0;
   padding-left: 20px;
