@@ -675,7 +675,8 @@ button.submit:focus-visible {
   margin: 26px 0;
 }
 .type-card {
-  display: block;
+  display: flex;
+  flex-direction: column;
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
@@ -709,6 +710,7 @@ button.submit:focus-visible {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  margin-top: auto;
   font-weight: 700;
   font-size: 1.05rem;
   color: var(--navy);
