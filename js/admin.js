@@ -1,8 +1,9 @@
 import { supabase } from "./supabaseClient.js";
 import { requireRole, signOut } from "./auth.js";
-import { CATEGORIES, THEMES } from "./validation.js";
+import { CATEGORIES, THEMES } from "./abstract-validation.js";
+import { NOMINATION_CATEGORIES } from "./award-validation.js";
 
-var BODY_FIELDS = [
+var ABSTRACT_BODY_FIELDS = [
   ["Background", "background"],
   ["Aim(s)/Objectives", "aims"],
   ["Methods", "methods"],
@@ -14,6 +15,7 @@ var FORMAT_LABELS = {
   moderated_poster: "Moderated poster discussion",
   oral_10min: "10-minute oral"
 };
+var TYPE_LABELS = { abstract: "Abstract", award: "Award" };
 
 function el(tag, className, text) {
   var node = document.createElement(tag);
@@ -34,6 +36,13 @@ function setStatus(node, msg, kind) {
   node.className = "dash-status-msg" + (kind ? " " + kind : "");
 }
 
+function buildField(label, value) {
+  var frag = document.createDocumentFragment();
+  frag.appendChild(el("h4", null, label));
+  frag.appendChild(el("p", null, value));
+  return frag;
+}
+
 (async function () {
   var profile = await requireRole("admin");
   if (!profile) return;
@@ -41,51 +50,17 @@ function setStatus(node, msg, kind) {
   document.getElementById("signOutBtn").addEventListener("click", signOut);
 
   // ==========================================================
-  // Screening queue
+  // Screening queue — shared across every submission type. Two
+  // parallel embedded queries (one per type, using the FK relationship
+  // to abstract_details/award_details, the same PostgREST embedding
+  // mechanism already used below for reviewer:profiles(...)), merged
+  // and sorted client-side. Adding a third type later means adding a
+  // third parallel query here, not a schema/query redesign.
   // ==========================================================
   var screeningList = document.getElementById("screeningList");
   var screeningStatusFilter = document.getElementById("screeningStatusFilter");
 
-  function buildScreeningCard(s) {
-    var card = el("div", "sub-card screened-" + s.screening_status);
-
-    var head = el("div", "sub-card-head");
-    head.appendChild(el("h3", null, s.abstract_title));
-    head.appendChild(el("span", "sub-tag", s.category));
-    head.appendChild(el("span", "sub-tag", s.theme === "Other" && s.other_theme ? s.other_theme + " (Other)" : s.theme));
-    card.appendChild(head);
-
-    var wordsOver = s.body_word_count > 400;
-    var meta = el("span", "sub-meta",
-      "Presenter: " + s.presenter_name + " (" + s.presenter_workplace + ") — " +
-      "Body word count: " + s.body_word_count + "/400" + (wordsOver ? " (OVER LIMIT)" : "") +
-      " — Submitted " + new Date(s.created_at).toLocaleDateString("en-GB"));
-    if (wordsOver) meta.style.color = "var(--danger)";
-    card.appendChild(meta);
-
-    var toggleBtn = el("button", "sub-body-toggle", "Show full submission");
-    toggleBtn.type = "button";
-    var body = el("div", "sub-body");
-    body.hidden = true;
-
-    body.appendChild(buildField("Your name / email", s.your_name + " — " + s.your_email));
-    body.appendChild(buildField("Presenter", s.presenter_name + ", " + s.presenter_job_title + ", " + s.presenter_workplace));
-    body.appendChild(buildField("Presenter contact", s.presenter_email + " — " + s.presenter_phone));
-    body.appendChild(buildField("Co-authors", s.co_authors));
-    body.appendChild(buildField("Previously submitted (1st author) / any", (s.prev_first_author ? "Yes" : "No") + " / " + (s.prev_any ? "Yes" : "No")));
-    BODY_FIELDS.forEach(function (pair) {
-      body.appendChild(buildField(pair[0], s[pair[1]]));
-    });
-    body.appendChild(buildField("Approval details", s.approval_details));
-    body.appendChild(buildField("References", s.reference_list));
-
-    toggleBtn.addEventListener("click", function () {
-      body.hidden = !body.hidden;
-      toggleBtn.textContent = body.hidden ? "Show full submission" : "Hide full submission";
-    });
-    card.appendChild(toggleBtn);
-    card.appendChild(body);
-
+  function buildScreeningActions(s, card, statusMsgExtra) {
     var actions = el("div", "sub-actions");
     var notes = document.createElement("textarea");
     notes.placeholder = "Screening notes (e.g. reason for failing)…";
@@ -124,26 +99,107 @@ function setStatus(node, msg, kind) {
     actions.appendChild(failBtn);
     actions.appendChild(statusMsg);
     card.appendChild(actions);
+  }
 
+  function buildAbstractScreeningCard(s) {
+    var d = s.abstract_details;
+    var card = el("div", "sub-card screened-" + s.screening_status);
+
+    var head = el("div", "sub-card-head");
+    head.appendChild(el("h3", null, d.abstract_title));
+    head.appendChild(el("span", "sub-tag", TYPE_LABELS.abstract));
+    head.appendChild(el("span", "sub-tag", d.category));
+    head.appendChild(el("span", "sub-tag", d.theme === "Other" && d.other_theme ? d.other_theme + " (Other)" : d.theme));
+    card.appendChild(head);
+
+    var wordsOver = d.body_word_count > 400;
+    var meta = el("span", "sub-meta",
+      "Presenter: " + d.presenter_name + " (" + d.presenter_workplace + ") — " +
+      "Body word count: " + d.body_word_count + "/400" + (wordsOver ? " (OVER LIMIT)" : "") +
+      " — Submitted " + new Date(s.created_at).toLocaleDateString("en-GB"));
+    if (wordsOver) meta.style.color = "var(--danger)";
+    card.appendChild(meta);
+
+    var toggleBtn = el("button", "sub-body-toggle", "Show full submission");
+    toggleBtn.type = "button";
+    var body = el("div", "sub-body");
+    body.hidden = true;
+    body.appendChild(buildField("Your name / email", d.your_name + " — " + d.your_email));
+    body.appendChild(buildField("Presenter", d.presenter_name + ", " + d.presenter_job_title + ", " + d.presenter_workplace));
+    body.appendChild(buildField("Presenter contact", d.presenter_email + " — " + d.presenter_phone));
+    body.appendChild(buildField("Co-authors", d.co_authors));
+    body.appendChild(buildField("Previously submitted (1st author) / any", (d.prev_first_author ? "Yes" : "No") + " / " + (d.prev_any ? "Yes" : "No")));
+    ABSTRACT_BODY_FIELDS.forEach(function (pair) {
+      body.appendChild(buildField(pair[0], d[pair[1]]));
+    });
+    body.appendChild(buildField("Approval details", d.approval_details));
+    body.appendChild(buildField("References", d.reference_list));
+    toggleBtn.addEventListener("click", function () {
+      body.hidden = !body.hidden;
+      toggleBtn.textContent = body.hidden ? "Show full submission" : "Hide full submission";
+    });
+    card.appendChild(toggleBtn);
+    card.appendChild(body);
+
+    buildScreeningActions(s, card);
     return card;
   }
 
-  function buildField(label, value) {
-    var frag = document.createDocumentFragment();
-    frag.appendChild(el("h4", null, label));
-    frag.appendChild(el("p", null, value));
-    return frag;
+  function buildAwardScreeningCard(s) {
+    var d = s.award_details;
+    var card = el("div", "sub-card screened-" + s.screening_status);
+
+    var wordsOver = d.justification_word_count > 500;
+
+    var head = el("div", "sub-card-head");
+    head.appendChild(el("h3", null, "Nomination: " + d.nominee_name));
+    head.appendChild(el("span", "sub-tag", TYPE_LABELS.award));
+    head.appendChild(el("span", "sub-tag", d.nomination_category));
+    card.appendChild(head);
+
+    var meta = el("span", "sub-meta",
+      "Nominated by: " + d.your_name + " (" + d.your_email + ") — " +
+      "Justification word count: " + d.justification_word_count + "/500" + (wordsOver ? " (OVER LIMIT)" : "") +
+      " — Submitted " + new Date(s.created_at).toLocaleDateString("en-GB"));
+    if (wordsOver) meta.style.color = "var(--danger)";
+    card.appendChild(meta);
+
+    var toggleBtn = el("button", "sub-body-toggle", "Show full submission");
+    toggleBtn.type = "button";
+    var body = el("div", "sub-body");
+    body.hidden = true;
+    body.appendChild(buildField("Nominee", d.nominee_name + ", " + d.nominee_job_title + ", " + d.nominee_workplace));
+    body.appendChild(buildField("Nominee email", d.nominee_email));
+    body.appendChild(buildField("Nominee specialty", d.nominee_specialty || "—"));
+    body.appendChild(buildField("Justification", d.justification));
+    toggleBtn.addEventListener("click", function () {
+      body.hidden = !body.hidden;
+      toggleBtn.textContent = body.hidden ? "Show full submission" : "Hide full submission";
+    });
+    card.appendChild(toggleBtn);
+    card.appendChild(body);
+
+    buildScreeningActions(s, card);
+    return card;
+  }
+
+  async function fetchScreeningRows(statusFilter) {
+    var abstractQuery = supabase.from("submissions").select("*, abstract_details(*)").eq("submission_type", "abstract");
+    var awardQuery = supabase.from("submissions").select("*, award_details(*)").eq("submission_type", "award");
+    if (statusFilter) {
+      abstractQuery = abstractQuery.eq("screening_status", statusFilter);
+      awardQuery = awardQuery.eq("screening_status", statusFilter);
+    }
+    var results = await Promise.all([abstractQuery, awardQuery]);
+    if (results[0].error) return { error: results[0].error };
+    if (results[1].error) return { error: results[1].error };
+    var rows = results[0].data.concat(results[1].data);
+    rows.sort(function (a, b) { return new Date(a.created_at) - new Date(b.created_at); });
+    return { data: rows };
   }
 
   async function loadScreening() {
-    var query = supabase
-      .from("submissions")
-      .select("*")
-      .order("created_at", { ascending: true });
-    if (screeningStatusFilter.value) {
-      query = query.eq("screening_status", screeningStatusFilter.value);
-    }
-    var result = await query;
+    var result = await fetchScreeningRows(screeningStatusFilter.value);
 
     screeningList.textContent = "";
     if (result.error) {
@@ -155,7 +211,7 @@ function setStatus(node, msg, kind) {
       return;
     }
     result.data.forEach(function (s) {
-      screeningList.appendChild(buildScreeningCard(s));
+      screeningList.appendChild(s.submission_type === "abstract" ? buildAbstractScreeningCard(s) : buildAwardScreeningCard(s));
     });
   }
   screeningStatusFilter.addEventListener("change", loadScreening);
@@ -163,13 +219,24 @@ function setStatus(node, msg, kind) {
   // ==========================================================
   // Programme
   // ==========================================================
+  var progTypeFilter = document.getElementById("progTypeFilter");
   var progCategoryFilter = document.getElementById("progCategoryFilter");
   var progThemeFilter = document.getElementById("progThemeFilter");
+  var progAwardCategoryFilter = document.getElementById("progAwardCategoryFilter");
   var progSort = document.getElementById("progSort");
   var programmeList = document.getElementById("programmeList");
 
   CATEGORIES.forEach(function (c) { addOption(progCategoryFilter, c); });
   THEMES.forEach(function (t) { addOption(progThemeFilter, t); });
+  NOMINATION_CATEGORIES.forEach(function (c) { addOption(progAwardCategoryFilter, c); });
+
+  function refreshProgFilterVisibility() {
+    var type = progTypeFilter.value;
+    progCategoryFilter.hidden = type !== "abstract";
+    progThemeFilter.hidden = type !== "abstract";
+    progAwardCategoryFilter.hidden = type !== "award";
+  }
+  refreshProgFilterVisibility();
 
   function buildReviewsPanel(submissionId) {
     var panel = el("div", "sub-body");
@@ -193,24 +260,42 @@ function setStatus(node, msg, kind) {
     return panel;
   }
 
-  function buildProgrammeCard(s) {
-    var card = el("div", "sub-card outcome-" + s.final_outcome);
-
-    var head = el("div", "sub-card-head");
-    head.appendChild(el("h3", null, s.abstract_title));
-    head.appendChild(el("span", "sub-tag", s.category));
-    head.appendChild(el("span", "sub-tag", s.theme === "Other" && s.other_theme ? s.other_theme + " (Other)" : s.theme));
-    card.appendChild(head);
-
-    card.appendChild(el("p", "sub-meta", "Presenter: " + s.presenter_name + " (" + s.presenter_workplace + ")"));
-
+  function buildVerdictTally(s) {
     var tally = el("div", "verdict-tally");
     tally.appendChild(el("span", "tick", "✓ " + (s.tick_count || 0)));
     tally.appendChild(el("span", "maybe", "? " + (s.maybe_count || 0)));
     tally.appendChild(el("span", "cross", "✗ " + (s.cross_count || 0)));
     tally.appendChild(el("span", null, "Score: " + (s.review_score === null || s.review_score === undefined ? "—" : s.review_score) +
       " (" + (s.review_count || 0) + " review" + (s.review_count === 1 ? "" : "s") + ")"));
-    card.appendChild(tally);
+    return tally;
+  }
+
+  // Rows come flat off abstract_submissions_with_review_summary /
+  // award_submissions_with_review_summary (a plain SELECT with real
+  // joins, not PostgREST embedding — see the migration's comment on
+  // why), so s.category/s.abstract_title/etc are directly on the row
+  // here, unlike the screening queue's s.abstract_details.X shape.
+  function buildProgrammeCard(s) {
+    var isAbstract = s.submission_type === "abstract";
+    var card = el("div", "sub-card outcome-" + s.final_outcome);
+
+    var head = el("div", "sub-card-head");
+    head.appendChild(el("h3", null, isAbstract ? s.abstract_title : "Nomination: " + s.nominee_name));
+    head.appendChild(el("span", "sub-tag", TYPE_LABELS[s.submission_type]));
+    if (isAbstract) {
+      head.appendChild(el("span", "sub-tag", s.category));
+      head.appendChild(el("span", "sub-tag", s.theme === "Other" && s.other_theme ? s.other_theme + " (Other)" : s.theme));
+    } else {
+      head.appendChild(el("span", "sub-tag", s.nomination_category));
+    }
+    card.appendChild(head);
+
+    card.appendChild(el("p", "sub-meta",
+      isAbstract
+        ? "Presenter: " + s.presenter_name + " (" + s.presenter_workplace + ")"
+        : "Nominee: " + s.nominee_name + " (" + s.nominee_workplace + ") — nominated by " + s.your_name));
+
+    card.appendChild(buildVerdictTally(s));
 
     var reviewsToggle = el("button", "sub-body-toggle", "Show reviews");
     reviewsToggle.type = "button";
@@ -232,19 +317,23 @@ function setStatus(node, msg, kind) {
     addOption(outcomeSelect, "accepted", "Accepted");
     addOption(outcomeSelect, "rejected", "Rejected");
     outcomeSelect.value = s.final_outcome;
+    actions.appendChild(outcomeSelect);
 
-    var formatSelect = document.createElement("select");
-    addOption(formatSelect, "", "— choose format —");
-    Object.keys(FORMAT_LABELS).forEach(function (key) {
-      addOption(formatSelect, key, FORMAT_LABELS[key]);
-    });
-    formatSelect.value = s.presentation_format || "";
-    formatSelect.disabled = outcomeSelect.value !== "accepted";
-
-    outcomeSelect.addEventListener("change", function () {
+    var formatSelect = null;
+    if (isAbstract) {
+      formatSelect = document.createElement("select");
+      addOption(formatSelect, "", "— choose format —");
+      Object.keys(FORMAT_LABELS).forEach(function (key) {
+        addOption(formatSelect, key, FORMAT_LABELS[key]);
+      });
+      formatSelect.value = s.presentation_format || "";
       formatSelect.disabled = outcomeSelect.value !== "accepted";
-      if (formatSelect.disabled) formatSelect.value = "";
-    });
+      outcomeSelect.addEventListener("change", function () {
+        formatSelect.disabled = outcomeSelect.value !== "accepted";
+        if (formatSelect.disabled) formatSelect.value = "";
+      });
+      actions.appendChild(formatSelect);
+    }
 
     var saveBtn = el("button", "btn-small", "Save decision");
     saveBtn.type = "button";
@@ -252,28 +341,22 @@ function setStatus(node, msg, kind) {
 
     saveBtn.addEventListener("click", async function () {
       saveBtn.disabled = true;
-      var result = await supabase
-        .from("submissions")
-        .update({
-          final_outcome: outcomeSelect.value,
-          presentation_format: outcomeSelect.value === "accepted" ? (formatSelect.value || null) : null,
-          decided_by: profile.id,
-          decided_at: new Date().toISOString()
-        })
-        .eq("id", s.id);
+      var result = await supabase.rpc("record_decision", {
+        p_submission_id: s.id,
+        p_outcome: outcomeSelect.value,
+        p_format: isAbstract && outcomeSelect.value === "accepted" ? (formatSelect.value || null) : null
+      });
       saveBtn.disabled = false;
       if (result.error) {
         setStatus(statusMsg, "Could not save. Try again.", "error");
         return;
       }
       s.final_outcome = outcomeSelect.value;
-      s.presentation_format = formatSelect.value || null;
+      if (isAbstract) s.presentation_format = formatSelect.value || null;
       card.className = "sub-card outcome-" + s.final_outcome;
       setStatus(statusMsg, "Saved.", "success");
     });
 
-    actions.appendChild(outcomeSelect);
-    actions.appendChild(formatSelect);
     actions.appendChild(saveBtn);
     actions.appendChild(statusMsg);
     card.appendChild(actions);
@@ -281,41 +364,77 @@ function setStatus(node, msg, kind) {
     return card;
   }
 
+  function progSortComparator(sortValue) {
+    return function (a, b) {
+      if (sortValue === "created_asc") {
+        return new Date(a.created_at) - new Date(b.created_at);
+      }
+      var aScore = a.review_score === null || a.review_score === undefined ? null : a.review_score;
+      var bScore = b.review_score === null || b.review_score === undefined ? null : b.review_score;
+      if (sortValue === "score_asc") {
+        if (aScore === null && bScore === null) return 0;
+        if (aScore === null) return -1; // nulls first when sorting ascending
+        if (bScore === null) return 1;
+        return aScore - bScore;
+      }
+      // score_desc (default): nulls last, tie-break on review_count
+      if (aScore === null && bScore === null) return 0;
+      if (aScore === null) return 1;
+      if (bScore === null) return -1;
+      var diff = bScore - aScore;
+      if (diff !== 0) return diff;
+      return (b.review_count || 0) - (a.review_count || 0);
+    };
+  }
+
   async function loadProgramme() {
-    var query = supabase
-      .from("submissions_with_review_summary")
-      .select("*")
-      .eq("screening_status", "passed");
+    var type = progTypeFilter.value;
+    var queries = [];
 
-    if (progCategoryFilter.value) query = query.eq("category", progCategoryFilter.value);
-    if (progThemeFilter.value) query = query.eq("theme", progThemeFilter.value);
-
-    if (progSort.value === "score_desc") {
-      query = query.order("review_score", { ascending: false, nullsFirst: false })
-                   .order("review_count", { ascending: false });
-    } else if (progSort.value === "score_asc") {
-      query = query.order("review_score", { ascending: true, nullsFirst: true });
-    } else {
-      query = query.order("created_at", { ascending: true });
+    if (!type || type === "abstract") {
+      var abstractQuery = supabase.from("abstract_submissions_with_review_summary").select("*").eq("screening_status", "passed");
+      if (type === "abstract") {
+        if (progCategoryFilter.value) abstractQuery = abstractQuery.eq("category", progCategoryFilter.value);
+        if (progThemeFilter.value) abstractQuery = abstractQuery.eq("theme", progThemeFilter.value);
+      }
+      queries.push(abstractQuery);
+    }
+    if (!type || type === "award") {
+      var awardQuery = supabase.from("award_submissions_with_review_summary").select("*").eq("screening_status", "passed");
+      if (type === "award" && progAwardCategoryFilter.value) {
+        awardQuery = awardQuery.eq("nomination_category", progAwardCategoryFilter.value);
+      }
+      queries.push(awardQuery);
     }
 
-    var result = await query;
+    var results = await Promise.all(queries);
+    var errored = results.find(function (r) { return r.error; });
 
     programmeList.textContent = "";
-    if (result.error) {
+    if (errored) {
       programmeList.appendChild(el("p", "dash-empty", "Could not load submissions."));
       return;
     }
-    if (result.data.length === 0) {
+
+    var rows = [];
+    results.forEach(function (r) { rows = rows.concat(r.data); });
+    rows.sort(progSortComparator(progSort.value));
+
+    if (rows.length === 0) {
       programmeList.appendChild(el("p", "dash-empty", "Nothing here — submissions appear once screening has passed them."));
       return;
     }
-    result.data.forEach(function (s) {
+    rows.forEach(function (s) {
       programmeList.appendChild(buildProgrammeCard(s));
     });
   }
+  progTypeFilter.addEventListener("change", function () {
+    refreshProgFilterVisibility();
+    loadProgramme();
+  });
   progCategoryFilter.addEventListener("change", loadProgramme);
   progThemeFilter.addEventListener("change", loadProgramme);
+  progAwardCategoryFilter.addEventListener("change", loadProgramme);
   progSort.addEventListener("change", loadProgramme);
 
   // ==========================================================

@@ -1,4 +1,4 @@
-import { CATEGORIES, THEMES, SUBHEADING_WORDS, BODY_LIMIT, TITLE_LIMIT, wordCount } from "./validation.js";
+import { CATEGORIES, THEMES, SUBHEADING_WORDS, BODY_LIMIT, TITLE_LIMIT, wordCount } from "./abstract-validation.js";
 
 (function () {
   "use strict";

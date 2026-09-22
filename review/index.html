@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Review submissions — ACPRC Annual Conference 2027</title>
-  <meta name="description" content="Reviewer dashboard for the ACPRC Annual Conference abstract system.">
+  <meta name="description" content="Reviewer dashboard for the ACPRC Annual Conference submission system.">
   <link rel="icon" type="image/png" sizes="32x32" href="../assets/favicon-32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="../assets/favicon-16.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -35,11 +35,16 @@
     <div class="wrap">
       <section class="card">
         <div class="section-head"><h2>Submissions available to review</h2></div>
-        <p class="section-intro">Author, presenter and workplace details are hidden — review is blind. Pick any submission you'd like to review; your verdict and comments are only ever visible to you and the committee.</p>
+        <p class="section-intro" id="reviewIntro">Pick any submission you'd like to review; your verdict and comments are only ever visible to you and the committee.</p>
 
         <div class="dash-toolbar">
+          <select id="reviewTypeSelect">
+            <option value="abstract">Abstracts</option>
+            <option value="award">Award nominations</option>
+          </select>
           <select id="filterCategory"><option value="">All categories</option></select>
           <select id="filterTheme"><option value="">All themes</option></select>
+          <select id="filterAwardCategory" hidden><option value="">All categories</option></select>
           <span class="spacer"></span>
           <button type="button" class="dash-signout" id="signOutBtn">Log out</button>
         </div>

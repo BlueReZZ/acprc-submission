@@ -1,14 +1,18 @@
 // Vercel serverless function (Node runtime, ESM). Public endpoint —
-// the only way a submission is ever created. Re-validates everything
-// server-side (never trusts the client's word counts, category/theme
-// choices, or submitted `submission_date`) and writes with the
-// service-role key, since there is no INSERT policy for anon/authenticated
-// callers on the `submissions` table (see supabase/migrations/0001_init_schema.sql).
+// the only way an abstract submission is ever created. Re-validates
+// everything server-side (never trusts the client's word counts,
+// category/theme choices, or submitted `submission_date`) and writes via
+// the create_abstract_submission() RPC using the service-role key, since
+// there is no INSERT policy for anon/authenticated callers on
+// `submissions`/`abstract_details`, and EXECUTE on that RPC is revoked
+// from anon/authenticated too (see
+// supabase/migrations/0003_multi_submission_types.sql) — creation must
+// only ever happen through this function, never a direct client call.
 //
 // Zero npm dependencies on purpose — talks to Supabase's REST (PostgREST)
 // API directly with fetch, so the repo never needs a package.json/node_modules
 // for /api to work.
-import { validateSubmission } from "../js/validation.js";
+import { validateSubmission } from "../js/abstract-validation.js";
 
 var SUPABASE_URL = process.env.SUPABASE_URL;
 var SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -46,7 +50,7 @@ export default async function handler(req, res) {
     return;
   }
 
-  var row = {
+  var data = {
     submission_date: new Date().toISOString().slice(0, 10),
 
     your_name: normalised.your_name.trim(),
@@ -79,15 +83,17 @@ export default async function handler(req, res) {
     consent: normalised.consent
   };
 
-  var supabaseRes = await fetch(SUPABASE_URL + "/rest/v1/submissions", {
+  // create_abstract_submission takes a single jsonb parameter (rather
+  // than ~24 typed parameters) specifically so its REVOKE EXECUTE grant
+  // (see the migration) has one unambiguous signature to name.
+  var supabaseRes = await fetch(SUPABASE_URL + "/rest/v1/rpc/create_abstract_submission", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       apikey: SERVICE_ROLE_KEY,
-      Authorization: "Bearer " + SERVICE_ROLE_KEY,
-      Prefer: "return=minimal"
+      Authorization: "Bearer " + SERVICE_ROLE_KEY
     },
-    body: JSON.stringify(row)
+    body: JSON.stringify({ p_data: data })
   });
 
   if (!supabaseRes.ok) {

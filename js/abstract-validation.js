@@ -1,7 +1,17 @@
-// Pure, DOM-free submission rules shared by the browser (js/form.js,
-// via <script type="module">) and the server (api/submit-abstract.mjs,
-// via a plain ES module import) so the two copies of the rules can
-// never drift apart. Do not reference `document`/`window` in this file.
+// Pure, DOM-free abstract-submission rules shared by the browser
+// (js/abstract-form.js, via <script type="module">) and the server
+// (api/submit-abstract.mjs, via a plain ES module import) so the two
+// copies of the rules can never drift apart. Do not reference
+// `document`/`window` in this file.
+//
+// Award nomination rules live in the separate js/award-validation.js —
+// the two types' business rules (word limits, required fields) differ
+// enough that a shared "validation.js" would just be two unrelated
+// rulesets glued together. wordCount() is the one truly shared piece,
+// imported from js/word-count.js by both.
+
+import { wordCount } from "./word-count.js";
+export { wordCount } from "./word-count.js";
 
 export var CATEGORIES = ["Research", "Education", "Clinical Practice", "Leadership"];
 export var THEMES = [
@@ -22,16 +32,6 @@ var REQUIRED_TEXT_KEYS = [
 ];
 var EMAIL_KEYS = ["your_email", "presenter_email"];
 var EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-export function wordCount(str) {
-  if (!str) return 0;
-  var tokens = String(str).trim().split(/\s+/);
-  var n = 0;
-  for (var i = 0; i < tokens.length; i++) {
-    if (/[a-zA-Z0-9]/.test(tokens[i])) n++;
-  }
-  return n;
-}
 
 export function bodyWordTotal(payload) {
   var total = SUBHEADING_WORDS;

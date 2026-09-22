@@ -666,3 +666,59 @@ button.submit:focus-visible {
   height: 1px;
   overflow: hidden;
 }
+
+/* ---------- landing page: submission type chooser ---------- */
+.type-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 20px;
+  margin: 26px 0;
+}
+.type-card {
+  display: block;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  border-top: 4px solid var(--cyan);
+  padding: 30px 26px;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+.type-card:hover,
+.type-card:focus-visible {
+  border-color: var(--navy);
+  box-shadow: 0 6px 18px rgba(41, 53, 86, 0.14);
+  transform: translateY(-2px);
+}
+.type-card:focus-visible {
+  outline: 3px solid var(--cyan);
+  outline-offset: 2px;
+}
+.type-card h2 {
+  color: var(--navy);
+  font-size: 1.4rem;
+  margin: 0 0 10px;
+}
+.type-card p {
+  color: var(--ink-soft);
+  line-height: 1.55;
+  margin: 0 0 20px;
+}
+.type-card .type-card-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--navy);
+}
+.type-card .type-card-cta::after {
+  content: "\2192";
+  font-size: 1.2rem;
+  transition: transform 0.15s ease;
+}
+.type-card:hover .type-card-cta::after,
+.type-card:focus-visible .type-card-cta::after {
+  transform: translateX(4px);
+}

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Admin — ACPRC Annual Conference 2027</title>
-  <meta name="description" content="Screening, programme and user admin for the ACPRC Annual Conference abstract system.">
+  <meta name="description" content="Screening, programme and user admin for the ACPRC Annual Conference submission system.">
   <link rel="icon" type="image/png" sizes="32x32" href="../assets/favicon-32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="../assets/favicon-16.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -39,7 +39,7 @@
 
       <section class="card">
         <div class="section-head"><h2>Screening queue</h2></div>
-        <p class="section-intro">Confirm each submission is real, has an appropriate ethics/governance or R&amp;D/audit approval statement (or a justification for none), and meets the 400-word limit, before it becomes visible to reviewers.</p>
+        <p class="section-intro">Confirm each submission is real and complete (approval statement / word limit for abstracts) before it becomes visible to reviewers. Applies the same way to every submission type.</p>
 
         <div class="dash-toolbar">
           <select id="screeningStatusFilter">
@@ -55,11 +55,17 @@
 
       <section class="card">
         <div class="section-head"><h2>Programme</h2></div>
-        <p class="section-intro">Filter and sort screened, reviewed submissions, and record each one's final outcome and presentation format.</p>
+        <p class="section-intro">Filter and sort screened, reviewed submissions, and record each one's final outcome (and, for abstracts, presentation format).</p>
 
         <div class="dash-toolbar">
-          <select id="progCategoryFilter"><option value="">All categories</option></select>
-          <select id="progThemeFilter"><option value="">All themes</option></select>
+          <select id="progTypeFilter">
+            <option value="">All types</option>
+            <option value="abstract">Abstract</option>
+            <option value="award">Award</option>
+          </select>
+          <select id="progCategoryFilter" hidden><option value="">All categories</option></select>
+          <select id="progThemeFilter" hidden><option value="">All themes</option></select>
+          <select id="progAwardCategoryFilter" hidden><option value="">All categories</option></select>
           <select id="progSort">
             <option value="score_desc">Highest review score first</option>
             <option value="score_asc">Lowest review score first</option>
