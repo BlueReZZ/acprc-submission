@@ -17,6 +17,7 @@
   flex: 1;
 }
 .dash-signout {
+  display: inline-block;
   background: none;
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -25,6 +26,7 @@
   cursor: pointer;
   font-family: var(--font);
   font-size: 0.85rem;
+  text-decoration: none;
 }
 .dash-signout:hover {
   border-color: var(--navy);
