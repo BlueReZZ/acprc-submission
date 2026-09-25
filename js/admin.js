@@ -1,7 +1,8 @@
 import { supabase } from "./supabaseClient.js";
-import { requireRole, signOut } from "./auth.js";
+import { requireRole } from "./auth.js";
+import { renderDashNav } from "./nav.js";
+import { el, addOption, setStatus, buildField } from "./dash-util.js";
 import { CATEGORIES, THEMES } from "./abstract-validation.js";
-import { NOMINATION_CATEGORIES } from "./award-validation.js";
 
 var ABSTRACT_BODY_FIELDS = [
   ["Background", "background"],
@@ -15,47 +16,17 @@ var FORMAT_LABELS = {
   moderated_poster: "Moderated poster discussion",
   oral_10min: "10-minute oral"
 };
-var TYPE_LABELS = { abstract: "Abstract", award: "Award" };
-
-function el(tag, className, text) {
-  var node = document.createElement(tag);
-  if (className) node.className = className;
-  if (text !== undefined) node.textContent = text;
-  return node;
-}
-
-function addOption(select, value, label) {
-  var opt = document.createElement("option");
-  opt.value = value;
-  opt.textContent = label !== undefined ? label : value;
-  select.appendChild(opt);
-}
-
-function setStatus(node, msg, kind) {
-  node.textContent = msg;
-  node.className = "dash-status-msg" + (kind ? " " + kind : "");
-}
-
-function buildField(label, value) {
-  var frag = document.createDocumentFragment();
-  frag.appendChild(el("h4", null, label));
-  frag.appendChild(el("p", null, value));
-  return frag;
-}
 
 (async function () {
   var profile = await requireRole("admin");
   if (!profile) return;
 
-  document.getElementById("signOutBtn").addEventListener("click", signOut);
+  renderDashNav(profile, "abstracts");
 
   // ==========================================================
-  // Screening queue — shared across every submission type. Two
-  // parallel embedded queries (one per type, using the FK relationship
-  // to abstract_details/award_details, the same PostgREST embedding
-  // mechanism already used below for reviewer:profiles(...)), merged
-  // and sorted client-side. Adding a third type later means adding a
-  // third parallel query here, not a schema/query redesign.
+  // Screening queue — abstracts only (award nominations have their own
+  // workflow on /nominations/). Embeds abstract_details via its FK, the
+  // same PostgREST embedding used below for reviewer:profiles(...).
   // ==========================================================
   var screeningList = document.getElementById("screeningList");
   var screeningStatusFilter = document.getElementById("screeningStatusFilter");
@@ -107,7 +78,6 @@ function buildField(label, value) {
 
     var head = el("div", "sub-card-head");
     head.appendChild(el("h3", null, d.abstract_title));
-    head.appendChild(el("span", "sub-tag", TYPE_LABELS.abstract));
     head.appendChild(el("span", "sub-tag", d.category));
     head.appendChild(el("span", "sub-tag", d.theme === "Other" && d.other_theme ? d.other_theme + " (Other)" : d.theme));
     card.appendChild(head);
@@ -145,61 +115,12 @@ function buildField(label, value) {
     return card;
   }
 
-  function buildAwardScreeningCard(s) {
-    var d = s.award_details;
-    var card = el("div", "sub-card screened-" + s.screening_status);
-
-    var wordsOver = d.justification_word_count > 500;
-
-    var head = el("div", "sub-card-head");
-    head.appendChild(el("h3", null, "Nomination: " + d.nominee_name));
-    head.appendChild(el("span", "sub-tag", TYPE_LABELS.award));
-    head.appendChild(el("span", "sub-tag", d.nomination_category));
-    card.appendChild(head);
-
-    var meta = el("span", "sub-meta",
-      "Nominated by: " + d.your_name + " (" + d.your_email + ") — " +
-      "Justification word count: " + d.justification_word_count + "/500" + (wordsOver ? " (OVER LIMIT)" : "") +
-      " — Submitted " + new Date(s.created_at).toLocaleDateString("en-GB"));
-    if (wordsOver) meta.style.color = "var(--danger)";
-    card.appendChild(meta);
-
-    var toggleBtn = el("button", "sub-body-toggle", "Show full submission");
-    toggleBtn.type = "button";
-    var body = el("div", "sub-body");
-    body.hidden = true;
-    body.appendChild(buildField("Nominee", d.nominee_name + ", " + d.nominee_job_title + ", " + d.nominee_workplace));
-    body.appendChild(buildField("Nominee email", d.nominee_email));
-    body.appendChild(buildField("Nominee specialty", d.nominee_specialty || "—"));
-    body.appendChild(buildField("Justification", d.justification));
-    toggleBtn.addEventListener("click", function () {
-      body.hidden = !body.hidden;
-      toggleBtn.textContent = body.hidden ? "Show full submission" : "Hide full submission";
-    });
-    card.appendChild(toggleBtn);
-    card.appendChild(body);
-
-    buildScreeningActions(s, card);
-    return card;
-  }
-
-  async function fetchScreeningRows(statusFilter) {
-    var abstractQuery = supabase.from("submissions").select("*, abstract_details(*)").eq("submission_type", "abstract");
-    var awardQuery = supabase.from("submissions").select("*, award_details(*)").eq("submission_type", "award");
-    if (statusFilter) {
-      abstractQuery = abstractQuery.eq("screening_status", statusFilter);
-      awardQuery = awardQuery.eq("screening_status", statusFilter);
-    }
-    var results = await Promise.all([abstractQuery, awardQuery]);
-    if (results[0].error) return { error: results[0].error };
-    if (results[1].error) return { error: results[1].error };
-    var rows = results[0].data.concat(results[1].data);
-    rows.sort(function (a, b) { return new Date(a.created_at) - new Date(b.created_at); });
-    return { data: rows };
-  }
-
   async function loadScreening() {
-    var result = await fetchScreeningRows(screeningStatusFilter.value);
+    var query = supabase.from("submissions").select("*, abstract_details(*)")
+      .eq("submission_type", "abstract")
+      .order("created_at", { ascending: true });
+    if (screeningStatusFilter.value) query = query.eq("screening_status", screeningStatusFilter.value);
+    var result = await query;
 
     screeningList.textContent = "";
     if (result.error) {
@@ -211,7 +132,7 @@ function buildField(label, value) {
       return;
     }
     result.data.forEach(function (s) {
-      screeningList.appendChild(s.submission_type === "abstract" ? buildAbstractScreeningCard(s) : buildAwardScreeningCard(s));
+      screeningList.appendChild(buildAbstractScreeningCard(s));
     });
   }
   screeningStatusFilter.addEventListener("change", loadScreening);
@@ -219,24 +140,13 @@ function buildField(label, value) {
   // ==========================================================
   // Programme
   // ==========================================================
-  var progTypeFilter = document.getElementById("progTypeFilter");
   var progCategoryFilter = document.getElementById("progCategoryFilter");
   var progThemeFilter = document.getElementById("progThemeFilter");
-  var progAwardCategoryFilter = document.getElementById("progAwardCategoryFilter");
   var progSort = document.getElementById("progSort");
   var programmeList = document.getElementById("programmeList");
 
   CATEGORIES.forEach(function (c) { addOption(progCategoryFilter, c); });
   THEMES.forEach(function (t) { addOption(progThemeFilter, t); });
-  NOMINATION_CATEGORIES.forEach(function (c) { addOption(progAwardCategoryFilter, c); });
-
-  function refreshProgFilterVisibility() {
-    var type = progTypeFilter.value;
-    progCategoryFilter.hidden = type !== "abstract";
-    progThemeFilter.hidden = type !== "abstract";
-    progAwardCategoryFilter.hidden = type !== "award";
-  }
-  refreshProgFilterVisibility();
 
   function buildReviewsPanel(submissionId) {
     var panel = el("div", "sub-body");
@@ -270,30 +180,21 @@ function buildField(label, value) {
     return tally;
   }
 
-  // Rows come flat off abstract_submissions_with_review_summary /
-  // award_submissions_with_review_summary (a plain SELECT with real
-  // joins, not PostgREST embedding — see the migration's comment on
-  // why), so s.category/s.abstract_title/etc are directly on the row
-  // here, unlike the screening queue's s.abstract_details.X shape.
+  // Rows come flat off abstract_submissions_with_review_summary (a
+  // plain SELECT with real joins, not PostgREST embedding — see the
+  // migration's comment on why), so s.category/s.abstract_title/etc are
+  // directly on the row here, unlike the screening queue's
+  // s.abstract_details.X shape.
   function buildProgrammeCard(s) {
-    var isAbstract = s.submission_type === "abstract";
     var card = el("div", "sub-card outcome-" + s.final_outcome);
 
     var head = el("div", "sub-card-head");
-    head.appendChild(el("h3", null, isAbstract ? s.abstract_title : "Nomination: " + s.nominee_name));
-    head.appendChild(el("span", "sub-tag", TYPE_LABELS[s.submission_type]));
-    if (isAbstract) {
-      head.appendChild(el("span", "sub-tag", s.category));
-      head.appendChild(el("span", "sub-tag", s.theme === "Other" && s.other_theme ? s.other_theme + " (Other)" : s.theme));
-    } else {
-      head.appendChild(el("span", "sub-tag", s.nomination_category));
-    }
+    head.appendChild(el("h3", null, s.abstract_title));
+    head.appendChild(el("span", "sub-tag", s.category));
+    head.appendChild(el("span", "sub-tag", s.theme === "Other" && s.other_theme ? s.other_theme + " (Other)" : s.theme));
     card.appendChild(head);
 
-    card.appendChild(el("p", "sub-meta",
-      isAbstract
-        ? "Presenter: " + s.presenter_name + " (" + s.presenter_workplace + ")"
-        : "Nominee: " + s.nominee_name + " (" + s.nominee_workplace + ") — nominated by " + s.your_name));
+    card.appendChild(el("p", "sub-meta", "Presenter: " + s.presenter_name + " (" + s.presenter_workplace + ")"));
 
     card.appendChild(buildVerdictTally(s));
 
@@ -319,21 +220,18 @@ function buildField(label, value) {
     outcomeSelect.value = s.final_outcome;
     actions.appendChild(outcomeSelect);
 
-    var formatSelect = null;
-    if (isAbstract) {
-      formatSelect = document.createElement("select");
-      addOption(formatSelect, "", "— choose format —");
-      Object.keys(FORMAT_LABELS).forEach(function (key) {
-        addOption(formatSelect, key, FORMAT_LABELS[key]);
-      });
-      formatSelect.value = s.presentation_format || "";
+    var formatSelect = document.createElement("select");
+    addOption(formatSelect, "", "— choose format —");
+    Object.keys(FORMAT_LABELS).forEach(function (key) {
+      addOption(formatSelect, key, FORMAT_LABELS[key]);
+    });
+    formatSelect.value = s.presentation_format || "";
+    formatSelect.disabled = outcomeSelect.value !== "accepted";
+    outcomeSelect.addEventListener("change", function () {
       formatSelect.disabled = outcomeSelect.value !== "accepted";
-      outcomeSelect.addEventListener("change", function () {
-        formatSelect.disabled = outcomeSelect.value !== "accepted";
-        if (formatSelect.disabled) formatSelect.value = "";
-      });
-      actions.appendChild(formatSelect);
-    }
+      if (formatSelect.disabled) formatSelect.value = "";
+    });
+    actions.appendChild(formatSelect);
 
     var saveBtn = el("button", "btn-small", "Save decision");
     saveBtn.type = "button";
@@ -344,7 +242,7 @@ function buildField(label, value) {
       var result = await supabase.rpc("record_decision", {
         p_submission_id: s.id,
         p_outcome: outcomeSelect.value,
-        p_format: isAbstract && outcomeSelect.value === "accepted" ? (formatSelect.value || null) : null
+        p_format: outcomeSelect.value === "accepted" ? (formatSelect.value || null) : null
       });
       saveBtn.disabled = false;
       if (result.error) {
@@ -352,7 +250,7 @@ function buildField(label, value) {
         return;
       }
       s.final_outcome = outcomeSelect.value;
-      if (isAbstract) s.presentation_format = formatSelect.value || null;
+      s.presentation_format = formatSelect.value || null;
       card.className = "sub-card outcome-" + s.final_outcome;
       setStatus(statusMsg, "Saved.", "success");
     });
@@ -388,36 +286,18 @@ function buildField(label, value) {
   }
 
   async function loadProgramme() {
-    var type = progTypeFilter.value;
-    var queries = [];
-
-    if (!type || type === "abstract") {
-      var abstractQuery = supabase.from("abstract_submissions_with_review_summary").select("*").eq("screening_status", "passed");
-      if (type === "abstract") {
-        if (progCategoryFilter.value) abstractQuery = abstractQuery.eq("category", progCategoryFilter.value);
-        if (progThemeFilter.value) abstractQuery = abstractQuery.eq("theme", progThemeFilter.value);
-      }
-      queries.push(abstractQuery);
-    }
-    if (!type || type === "award") {
-      var awardQuery = supabase.from("award_submissions_with_review_summary").select("*").eq("screening_status", "passed");
-      if (type === "award" && progAwardCategoryFilter.value) {
-        awardQuery = awardQuery.eq("nomination_category", progAwardCategoryFilter.value);
-      }
-      queries.push(awardQuery);
-    }
-
-    var results = await Promise.all(queries);
-    var errored = results.find(function (r) { return r.error; });
+    var query = supabase.from("abstract_submissions_with_review_summary").select("*").eq("screening_status", "passed");
+    if (progCategoryFilter.value) query = query.eq("category", progCategoryFilter.value);
+    if (progThemeFilter.value) query = query.eq("theme", progThemeFilter.value);
+    var result = await query;
 
     programmeList.textContent = "";
-    if (errored) {
+    if (result.error) {
       programmeList.appendChild(el("p", "dash-empty", "Could not load submissions."));
       return;
     }
 
-    var rows = [];
-    results.forEach(function (r) { rows = rows.concat(r.data); });
+    var rows = result.data;
     rows.sort(progSortComparator(progSort.value));
 
     if (rows.length === 0) {
@@ -428,53 +308,9 @@ function buildField(label, value) {
       programmeList.appendChild(buildProgrammeCard(s));
     });
   }
-  progTypeFilter.addEventListener("change", function () {
-    refreshProgFilterVisibility();
-    loadProgramme();
-  });
   progCategoryFilter.addEventListener("change", loadProgramme);
   progThemeFilter.addEventListener("change", loadProgramme);
-  progAwardCategoryFilter.addEventListener("change", loadProgramme);
   progSort.addEventListener("change", loadProgramme);
-
-  // ==========================================================
-  // Invite user
-  // ==========================================================
-  var inviteEmail = document.getElementById("inviteEmail");
-  var inviteName = document.getElementById("inviteName");
-  var inviteRole = document.getElementById("inviteRole");
-  var inviteBtn = document.getElementById("inviteBtn");
-  var inviteStatus = document.getElementById("inviteStatus");
-
-  inviteBtn.addEventListener("click", async function () {
-    var email = inviteEmail.value.trim();
-    var fullName = inviteName.value.trim();
-    var role = inviteRole.value;
-    if (!email || !fullName) {
-      setStatus(inviteStatus, "Enter an email and a full name.", "error");
-      return;
-    }
-
-    inviteBtn.disabled = true;
-    var sessionResult = await supabase.auth.getSession();
-    var token = sessionResult.data.session.access_token;
-
-    var response = await fetch("/api/invite-user", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
-      body: JSON.stringify({ email: email, full_name: fullName, role: role })
-    });
-    inviteBtn.disabled = false;
-
-    if (!response.ok) {
-      setStatus(inviteStatus, "Could not send invite. Check the details and try again.", "error");
-      return;
-    }
-
-    setStatus(inviteStatus, "Invite sent to " + email + ".", "success");
-    inviteEmail.value = "";
-    inviteName.value = "";
-  });
 
   await loadScreening();
   await loadProgramme();

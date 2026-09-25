@@ -1,7 +1,7 @@
 import { supabase } from "./supabaseClient.js";
-import { requireRole, signOut } from "./auth.js";
+import { requireRole } from "./auth.js";
+import { renderDashNav } from "./nav.js";
 import { CATEGORIES, THEMES } from "./abstract-validation.js";
-import { NOMINATION_CATEGORIES } from "./award-validation.js";
 
 var ABSTRACT_BODY_FIELDS = [
   ["Background", "background"],
@@ -13,7 +13,6 @@ var ABSTRACT_BODY_FIELDS = [
   ["References", "reference_list"]
 ];
 var ABSTRACT_VERDICTS = [["accept", "✓"], ["maybe", "?"], ["reject", "✗"]];
-var AWARD_VERDICTS = [["accept", "✓"], ["reject", "✗"]];
 
 function addOption(select, value) {
   var opt = document.createElement("option");
@@ -37,26 +36,19 @@ function buildField(label, value) {
   var profile = await requireRole("reviewer");
   if (!profile) return;
 
-  var typeSelect = document.getElementById("reviewTypeSelect");
   var categorySelect = document.getElementById("filterCategory");
   var themeSelect = document.getElementById("filterTheme");
-  var awardCategorySelect = document.getElementById("filterAwardCategory");
   var listEl = document.getElementById("submissionList");
-  var introEl = document.getElementById("reviewIntro");
-  var signOutBtn = document.getElementById("signOutBtn");
-  signOutBtn.addEventListener("click", signOut);
+
+  renderDashNav(profile, "abstracts");
 
   CATEGORIES.forEach(function (c) { addOption(categorySelect, c); });
   THEMES.forEach(function (t) { addOption(themeSelect, t); });
-  NOMINATION_CATEGORIES.forEach(function (c) { addOption(awardCategorySelect, c); });
 
   var allSubmissions = [];
 
-  // Shared verdict-buttons + comment + save row, used by both card
-  // builders below. `verdictOptions` controls which buttons appear
-  // (3-state for abstracts, 2-state approve/reject for awards — the
-  // award restriction is backstopped at the DB level by
-  // verdict_allowed_for_submission(), this is just what the UI offers).
+  // Verdict buttons + comment + save row. Award nominations are
+  // reviewed on /nominations/ instead (eligible + shortlist yes/no).
   function buildReviewActions(s, verdictOptions) {
     var actions = document.createElement("div");
     actions.className = "sub-actions";
@@ -189,69 +181,12 @@ function buildField(label, value) {
     return card;
   }
 
-  function buildAwardCard(s) {
-    var card = document.createElement("div");
-    card.className = "sub-card";
-
-    var head = document.createElement("div");
-    head.className = "sub-card-head";
-    var h3 = document.createElement("h3");
-    h3.textContent = s.nominee_name;
-    head.appendChild(h3);
-    var catTag = document.createElement("span");
-    catTag.className = "sub-tag";
-    catTag.textContent = s.nomination_category;
-    head.appendChild(catTag);
-    card.appendChild(head);
-
-    var nomineeMeta = document.createElement("p");
-    nomineeMeta.className = "sub-meta";
-    nomineeMeta.textContent = s.nominee_job_title + ", " + s.nominee_workplace +
-      (s.nominee_specialty ? " — " + s.nominee_specialty : "");
-    card.appendChild(nomineeMeta);
-
-    var nominatorMeta = document.createElement("p");
-    nominatorMeta.className = "sub-meta";
-    nominatorMeta.textContent = "Nominated by " + s.your_name + " (" + s.your_email + ")";
-    card.appendChild(nominatorMeta);
-
-    var already = buildAlreadyReviewedNote(s);
-    if (already) card.appendChild(already);
-
-    var toggleBtn = document.createElement("button");
-    toggleBtn.type = "button";
-    toggleBtn.className = "sub-body-toggle";
-    toggleBtn.textContent = "Show justification";
-    var body = document.createElement("div");
-    body.className = "sub-body";
-    body.hidden = true;
-    body.appendChild(buildField("Justification", s.justification));
-    toggleBtn.addEventListener("click", function () {
-      body.hidden = !body.hidden;
-      toggleBtn.textContent = body.hidden ? "Show justification" : "Hide justification";
-    });
-    card.appendChild(toggleBtn);
-    card.appendChild(body);
-
-    card.appendChild(buildReviewActions(s, AWARD_VERDICTS));
-    return card;
-  }
-
   function render() {
-    var mode = typeSelect.value;
-    var filtered = allSubmissions;
-    if (mode === "abstract") {
-      var cat = categorySelect.value;
-      var theme = themeSelect.value;
-      filtered = allSubmissions.filter(function (s) {
-        return (!cat || s.category === cat) && (!theme || s.theme === theme);
-      });
-    } else {
-      var awardCat = awardCategorySelect.value;
-      filtered = allSubmissions.filter(function (s) {
-        return !awardCat || s.nomination_category === awardCat;
-      });
-    }
+    var cat = categorySelect.value;
+    var theme = themeSelect.value;
+    var filtered = allSubmissions.filter(function (s) {
+      return (!cat || s.category === cat) && (!theme || s.theme === theme);
+    });
 
     listEl.textContent = "";
     if (filtered.length === 0) {
@@ -262,24 +197,12 @@ function buildField(label, value) {
       return;
     }
     filtered.forEach(function (s) {
-      listEl.appendChild(mode === "abstract" ? buildAbstractCard(s) : buildAwardCard(s));
+      listEl.appendChild(buildAbstractCard(s));
     });
   }
 
-  function refreshModeUI() {
-    var mode = typeSelect.value;
-    categorySelect.hidden = mode !== "abstract";
-    themeSelect.hidden = mode !== "abstract";
-    awardCategorySelect.hidden = mode !== "award";
-    introEl.textContent = mode === "abstract"
-      ? "Author, presenter and workplace details are hidden — review is blind. Pick any submission you'd like to review; your verdict and comments are only ever visible to you and the committee."
-      : "Award review isn't blind — the nominee and nominator are shown. Pick any nomination you'd like to review; your verdict and comments are only ever visible to you and the committee.";
-  }
-
   async function load() {
-    var mode = typeSelect.value;
-    var table = mode === "abstract" ? "abstract_submissions_for_review" : "award_submissions_for_review";
-    var result = await supabase.from(table).select("*").order("created_at", { ascending: true });
+    var result = await supabase.from("abstract_submissions_for_review").select("*").order("created_at", { ascending: true });
 
     if (result.error) {
       listEl.textContent = "";
@@ -294,14 +217,8 @@ function buildField(label, value) {
     render();
   }
 
-  typeSelect.addEventListener("change", function () {
-    refreshModeUI();
-    load();
-  });
   categorySelect.addEventListener("change", render);
   themeSelect.addEventListener("change", render);
-  awardCategorySelect.addEventListener("change", render);
 
-  refreshModeUI();
   await load();
 })();

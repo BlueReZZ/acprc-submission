@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Award nominations — ACPRC Annual Conference 2027</title>
+  <meta name="description" content="Review and shortlisting of ACPRC award nominations.">
+  <link rel="icon" type="image/png" sizes="32x32" href="../assets/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="../assets/favicon-16.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,400;0,700;0,900;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="../css/admin.css">
+</head>
+<body>
+  <div class="site-header__bar">
+    <div class="site-header__bar-inner">
+      <span>Association of Chartered Physiotherapists in Respiratory Care</span>
+      <a href="https://www.acprc.org.uk/annual-conference/submission-details/abstract-submission/">acprc.org.uk</a>
+    </div>
+  </div>
+
+  <header class="site-header">
+    <div class="site-header-inner">
+      <img src="../assets/logo.png" alt="ACPRC logo" width="56" height="56">
+      <div class="site-header-titles">
+        <p class="eyebrow">Annual Conference 2027</p>
+        <h1>Award nominations</h1>
+      </div>
+    </div>
+  </header>
+
+  <main id="main">
+    <div class="wrap">
+      <nav class="dash-tabs" id="dashNav" aria-label="Dashboard"></nav>
+
+      <section class="card">
+        <div class="section-head"><span class="section-num" id="reviewStepNum" hidden>Step 1</span><h2>Review nominations</h2></div>
+        <p class="section-intro">Pick any nomination you'd like to review. For each one, say whether the nominee is eligible and whether they should be shortlisted, with a note on why. All categories are open to any ACPRC member, except Newcomer of the Year, which is only open to those who qualified in the last 3 years. Other reviewers can't see your answers. Only the admins can.</p>
+
+        <div class="dash-toolbar">
+          <select id="reviewCategoryFilter"><option value="">All categories</option></select>
+          <select id="reviewMineFilter">
+            <option value="">All nominations</option>
+            <option value="todo">Not yet reviewed by me</option>
+            <option value="done">Reviewed by me</option>
+          </select>
+          <span class="dash-count" id="reviewCount"></span>
+        </div>
+
+        <div id="reviewList"><p class="dash-empty">Loading&hellip;</p></div>
+      </section>
+
+      <section class="card" id="shortlistSection" hidden>
+        <div class="section-head"><span class="section-num">Step 2</span><h2>Shortlist &amp; winners</h2></div>
+        <p class="section-intro">Every nomination, grouped by category, with the reviewers' combined answers. Record whether each one is shortlisted, and pick the winner(s). A category can have joint winners. Reviewers never see outcomes.</p>
+
+        <div class="dash-toolbar">
+          <select id="shortlistCategoryFilter"><option value="">All categories</option></select>
+          <select id="shortlistOutcomeFilter">
+            <option value="">Any outcome</option>
+            <option value="pending">Not yet decided</option>
+            <option value="shortlisted">Shortlisted</option>
+            <option value="winner">Winner</option>
+            <option value="not_shortlisted">Not shortlisted</option>
+          </select>
+        </div>
+
+        <div id="shortlistList"><p class="dash-empty">Loading&hellip;</p></div>
+      </section>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="site-footer-inner">
+      <span>&copy; <span id="year"></span> ACPRC — Association of Chartered Physiotherapists in Respiratory Care</span>
+    </div>
+  </footer>
+
+  <script>document.getElementById("year").textContent = new Date().getFullYear();</script>
+  <script type="module" src="../js/nominations.js"></script>
+</body>
+</html>

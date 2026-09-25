@@ -42,7 +42,7 @@ async function redirectSignedInUser() {
 
   var profileResult = await supabase
     .from("profiles")
-    .select("role")
+    .select("id")
     .eq("id", session.user.id)
     .single();
 
@@ -52,7 +52,9 @@ async function redirectSignedInUser() {
     return false;
   }
 
-  window.location.href = profileResult.data.role === "admin" ? "/admin/" : "/review/";
+  // Everyone lands on award nominations (the pilot); the tab bar there
+  // links to abstracts, and to users for admins.
+  window.location.href = "/nominations/";
   return true;
 }
 

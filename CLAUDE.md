@@ -176,11 +176,13 @@ shell and `css/style.css` tokens — no per-page design system drift.
 index.html                              landing page — two large cards ("Abstract" / "Award Nomination"), each linking to its own form
 abstract/index.html                     abstract submission form (moved verbatim from the old root index.html when award nominations became a second type)
 award/index.html                        award nomination form
-login/index.html                        shared magic-link log in page (admin + reviewer)
-admin/index.html                        screening queue, programme view, invite-user form — works across every submission type
-review/index.html                       reviewer dashboard — a Type toggle switches between blinded abstract review and open award review
+login/index.html                        shared magic-link log in page (admin + reviewer) — everyone lands on nominations/ after logging in
+nominations/index.html                  "Award nominations" tab — the award workflow: review (eligible + shortlist yes/no) → shortlist & winners; no screening step; sections shown by role
+admin/index.html                        "Abstracts" tab for admins — abstract screening queue + programme (the original format, abstracts only)
+review/index.html                       "Abstracts" tab for reviewers — blinded abstract review (the original format, abstracts only)
+admin/users/index.html                  "Users" tab (admin only) — invite-user form
 css/style.css                           hand-written stylesheet using ACPRC's real brand tokens — shared by every page, incl. the landing page's card grid
-css/admin.css                           dashboard/table layout for admin + review pages, built on style.css's tokens
+css/admin.css                           dashboard layout for every logged-in page (tab bar, cards, yes/no pickers), built on style.css's tokens
 js/word-count.js                        wordCount() — the one genuinely type-agnostic piece of validation, shared by every type's validation module
 js/abstract-form.js                     abstract form's client-side behaviour (renamed from js/form.js)
 js/abstract-validation.js               shared, DOM-free abstract rules (word limits, enums) — imported by js/abstract-form.js AND api/submit-abstract.mjs, so the two copies can't drift (renamed from js/validation.js)
@@ -189,8 +191,12 @@ js/award-validation.js                  shared, DOM-free award rules — importe
 js/supabaseClient.js                    configured Supabase client (publishable key — safe to ship; RLS does the real protection)
 js/auth.js                              shared session/role guard + sign-out, used by admin.js and review.js — has no submission-type awareness at all
 js/auth-login.js                        login page behaviour (magic-link send + redirect-on-session)
-js/admin.js                             admin page behaviour (screening, programme, invite) — type-aware: separate query/render logic per type, merged for a combined view
-js/review.js                            reviewer page behaviour — a Type toggle switches the query, card renderer, and verdict options (3-state blind vs 2-state open)
+js/nav.js                               renderDashNav() — the tab bar (Award nominations | Abstracts | Users) + log out, shared by every logged-in page
+js/dash-util.js                         small DOM helpers (el, addOption, setStatus, buildField, buildToggle) shared by the logged-in pages
+js/nominations.js                       award workflow page behaviour (see "Award review process" under "Backend")
+js/admin.js                             abstract admin behaviour (screening, programme) — abstracts only
+js/review.js                            abstract reviewer behaviour (blind, 3-state verdict) — abstracts only
+js/users.js                             invite-user form behaviour
 api/submit-abstract.mjs                 serverless function (Vercel): the ONLY way an abstract submission is created; re-validates everything server-side
 api/submit-award.mjs                    serverless function (Vercel): the ONLY way an award nomination is created; mirrors submit-abstract.mjs's shape
 api/invite-user.mjs                     serverless function (Vercel): admin-only, provisions a new admin/reviewer account — no submission-type awareness
@@ -198,6 +204,7 @@ supabase/migrations/0001_init_schema.sql            original single-type schema 
 supabase/migrations/0002_fix_view_privileges.sql    fixes a view-privilege bug found after first deploying 0001 (historical, same caveat)
 supabase/migrations/0003_multi_submission_types.sql full rebuild into the current multi-type schema — this is the one that matters; see "Backend"
 supabase/migrations/0004_fix_create_submission_privileges.sql   fixes a function-privilege bug found after first deploying 0003 (see "Backend")
+supabase/migrations/0005_award_review_process.sql   award-specific review: reviews.eligible, award outcomes, admins may review awards (see "Award review process")
 docs/ACPRC-award-2025-nomination-form.docx          source document for the award form's fields (see above)
 assets/                                 ACPRC's real logo + favicons
 ```
@@ -250,16 +257,20 @@ reasoning for every decision below was captured in two approved
 implementation plans across the sessions that built this (the original
 single-type backend, then the multi-type generalization); the essentials:
 
-- **Screening** (`admin/`, "Screening queue" section) — admin confirms a
-  submission is real and complete (approval statement/word limit for
-  abstracts) before it's visible to reviewers. Applies identically to
-  every type. `submissions.screening_status` (`pending|passed|failed`) is
+- **Screening** (`admin/`, "Screening queue" section) — **abstracts
+  only**: admin confirms a submission is real and complete (approval
+  statement/word limit) before it's visible to reviewers. Award
+  nominations have **no screening step** (the committee confirmed it
+  isn't needed) — they're reviewable as soon as they're submitted, and
+  their `screening_status` just stays `pending`, ignored.
+  `submissions.screening_status` (`pending|passed|failed`) is
   the current-state column; every screening action also appends to
   `screening_log` (who/when/notes) via the `screen_submission()` RPC, so
   status changes have an audit trail.
-- **Reviewing** (`review/`) — reviewers log in and self-select which
-  *passed* submissions to review, via a Type toggle that switches which
-  queue they're browsing. **Abstract review is blind**: the
+- **Reviewing** — reviewers log in and self-select which submissions to
+  review: *passed* abstracts on `review/`, any award nomination on
+  `nominations/` (where admins can review too — see "Award review
+  process" below). **Abstract review is blind**: the
   `abstract_submissions_for_review` view exposes only category, theme,
   title, the five body fields, approval details and references — never
   `co_authors` or any name/workplace/contact field. **Award review is
@@ -273,23 +284,22 @@ single-type backend, then the multi-type generalization); the essentials:
   table for every type (one row per submission×reviewer,
   `unique(submission_id, reviewer_id)` gives upsert-to-edit-your-own-review
   semantics). **Abstract verdicts are 3-state** (accept/maybe/reject);
-  **award verdicts are 2-state** (accept/reject only — awards "just get an
-  approval or rejection," per the committee) — enforced not by a
-  type-specific column but by an RLS check (`verdict_allowed_for_submission()`)
-  on the one shared `verdict` column, so review storage stays genuinely
-  unified across types. **Reviewers never see each other's verdicts or
+  **award reviews are eligible yes/no + shortlist yes/no** (shortlist
+  stored as accept/reject in the same `verdict` column) — enforced not
+  by type-specific tables but by an RLS check (`review_allowed()`) on
+  the shared columns, so review storage stays genuinely unified across
+  types. **Reviewers never see each other's verdicts or
   comments** — only admin sees all reviews on a submission together.
-- **Programme organisation** (`admin/`, "Programme" section) — a Type
-  filter (All/Abstract/Award) drives which per-type view(s) are queried;
-  selecting a specific type reveals that type's own secondary filters
-  (category+theme for abstracts, nomination category for awards) — "All"
-  runs both and merges them into one combined, sortable list (the "team
-  can easily see abstracts and awards together" requirement), sorted by a
-  shared `review_score` (accept=+1, maybe=0, reject=−1, summed — not
+- **Programme organisation** (abstracts: `admin/`, "Programme" section;
+  awards: `nominations/`, "Shortlist & winners" — see below). The
+  abstract programme filters by category+theme and sorts by
+  `review_score` (accept=+1, maybe=0, reject=−1, summed — not
   averaged — across all reviews; unreviewed submissions sort last,
   distinct from an all-"maybe"/all-"reject" score). Records the final
-  outcome (accepted/rejected) plus, for abstracts only, the assigned
-  presentation format, via the `record_decision()` RPC. This is the
+  outcome (accepted/rejected) plus the assigned presentation format, via
+  the `record_decision()` RPC. (An earlier combined abstracts-and-awards
+  programme list was dropped when the committee asked for a separate
+  page per type.) This is the
   single source of truth for the programme, not just a read-only view.
 
 ### Multi-type data model
@@ -340,7 +350,8 @@ depends on a `submission_type` value.
 - `verdict_allowed_for_submission(p_submission_id, p_verdict)` — boolean
   helper backing the award-only "no `maybe`" restriction, used in
   `reviews`' RLS `insert`/`update` policies alongside the existing
-  `submission_is_reviewable()`.
+  `submission_is_reviewable()`. (Both superseded by `review_allowed()` in
+  `0005` — see "Award review process".)
 - `record_decision(p_submission_id, p_outcome, p_format)` — replaces the
   old direct `.update()` on `submissions` from `admin.js`, since recording
   a decision now needs to write both `submissions.final_outcome` and
@@ -363,14 +374,64 @@ non-technical, infrequent, volunteer audience.
 submission-creation and user-invitation is a direct
 `@supabase/supabase-js` call from the browser, protected entirely by Row
 Level Security (see the policies and helper functions — `is_admin()`,
-`is_reviewer()`, `submission_is_reviewable()`, `verdict_allowed_for_submission()`
-— in `supabase/migrations/0003_multi_submission_types.sql`). Those
+`is_reviewer()`, and `review_allowed()` — in
+`supabase/migrations/0003_multi_submission_types.sql` and
+`0005_award_review_process.sql`). Those
 operations genuinely need a server: submission validation can't be
 trusted to the client (`api/submit-*.mjs` re-run their type's `*-validation.js`
 rules and compute `submission_date`/word counts themselves, ignoring
 whatever the client sent), and inviting a user is a Supabase Auth *Admin*
 API call, not a database write, so it can never be expressed as an RLS
 policy.
+
+### Logged-in pages: one tab per submission type
+
+Every logged-in page shares a tab bar (`js/nav.js`): **Award nominations**
+(`/nominations/`, everyone) | **Abstracts** (`/admin/` for admins,
+`/review/` for reviewers) | **Users** (`/admin/users/`, admins only). Awards
+come first because they're the pilot. The Abstracts pages are the
+original screening/programme/review format, just narrowed to abstracts
+only — deliberately left as-is until abstracts launch and the committee
+revisits their workflow.
+
+### Award review process (`nominations/`, migration `0005`)
+
+Designed with the committee separately from the abstract workflow — the
+generic "accept/reject + programme" model didn't fit awards:
+
+There is **no screening step** for awards (the committee said it isn't
+needed): `award_submissions_for_review`, `review_allowed()` and the
+shortlist board all ignore `screening_status` for awards, so a
+nomination is reviewable as soon as it's submitted. Spam defence is the
+form's honeypot plus reviewers' judgement (an admin can simply mark junk
+"not shortlisted").
+
+1. **Review nominations** (reviewers **and admins**, self-selected) — each
+   review answers **Eligible? yes/no** and **Shortlist? yes/no**, plus
+   required notes. Shortlist is stored in the shared `reviews.verdict`
+   column as `accept`/`reject` (so `reviews` is still one table for every
+   type); eligibility is `reviews.eligible` (nullable boolean — required
+   for awards, always null for abstracts). Both rules, plus "admins may
+   review awards but not abstracts", live in one RLS helper,
+   `review_allowed(submission_id, verdict, eligible)`, which replaced
+   `submission_is_reviewable()` + `verdict_allowed_for_submission()`.
+   Admins can already see every review, so an admin's own award review
+   isn't made "blind" to other reviewers' answers — accepted as fine for
+   awards.
+2. **Shortlist & winners** (admins) — every nomination grouped by
+   category (per-category counts: on shortlist / winners / undecided),
+   sorted by shortlist-yes then eligible-yes counts, with each reviewer's
+   answers expandable. Outcome is `pending | not_shortlisted |
+   shortlisted | winner` in the shared `submissions.final_outcome`
+   column (a CHECK ties allowed values to `submission_type`; abstracts
+   keep `pending | accepted | rejected`), recorded via the unchanged
+   `record_decision()`. **Joint winners are allowed** — deliberately no
+   one-winner-per-category constraint. "On shortlist" counts
+   `shortlisted` + `winner`.
+
+Each nomination is handled on its own, even if the same person is
+nominated more than once (the committee's choice) — no grouping by
+nominee. Reviewers never see outcomes.
 
 **What's NOT resurrected**: Monday.com's hidden rubric (two assigned
 reviewers scoring 5 criteria 0–3 each) — structurally incompatible with
@@ -380,7 +441,8 @@ reviewers scoring 5 criteria 0–3 each) — structurally incompatible with
 **Deploying this for real** (one-time, manual — not codeable):
 1. Create a free Supabase project; run `0001_init_schema.sql`, then
    `0002_fix_view_privileges.sql`, then `0003_multi_submission_types.sql`,
-   then `0004_fix_create_submission_privileges.sql` against it in order
+   then `0004_fix_create_submission_privileges.sql`, then
+   `0005_award_review_process.sql` against it in order
    (SQL editor or `supabase db push`); note the
    project URL, publishable key, and secret key (Settings → API → API
    Keys — Supabase's current recommended key format, replacing the older
@@ -445,6 +507,12 @@ reviewers scoring 5 criteria 0–3 each) — structurally incompatible with
   take real screenshots and click-test the forms. That's not part of the
   project itself, just how verification was done — repeat the same
   approach if the extension still isn't available.
+- The logged-in pages can be click-tested without live infrastructure by
+  serving a scratch copy of the site with `js/supabaseClient.js`
+  replaced by a small mock (a chainable `from()`/`rpc()`/`auth` stub
+  returning fixture rows, role picked via `?as=admin|reviewer`). That's
+  how `nominations/` was verified — it checks rendering, filters and
+  button wiring, not RLS.
 - No `psql`/local Postgres is available in this environment — new
   migrations (`0003_multi_submission_types.sql` and any future ones)
   can't be syntax-checked locally before running them against the real

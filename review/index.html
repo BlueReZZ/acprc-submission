@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Review submissions — ACPRC Annual Conference 2027</title>
+  <title>Review abstracts — ACPRC Annual Conference 2027</title>
   <meta name="description" content="Reviewer dashboard for the ACPRC Annual Conference submission system.">
   <link rel="icon" type="image/png" sizes="32x32" href="../assets/favicon-32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="../assets/favicon-16.png">
@@ -26,28 +26,22 @@
       <img src="../assets/logo.png" alt="ACPRC logo" width="56" height="56">
       <div class="site-header-titles">
         <p class="eyebrow">Annual Conference 2027</p>
-        <h1>Reviewer dashboard</h1>
+        <h1>Review abstracts</h1>
       </div>
     </div>
   </header>
 
   <main id="main">
     <div class="wrap">
+      <nav class="dash-tabs" id="dashNav" aria-label="Dashboard"></nav>
+
       <section class="card">
-        <div class="section-head"><h2>Submissions available to review</h2></div>
-        <p class="section-intro" id="reviewIntro">Pick any submission you'd like to review; your verdict and comments are only ever visible to you and the committee.</p>
+        <div class="section-head"><h2>Abstracts available to review</h2></div>
+        <p class="section-intro">Author, presenter and workplace details are hidden — review is blind. Pick any submission you'd like to review; your verdict and comments are only ever visible to you and the committee.</p>
 
         <div class="dash-toolbar">
-          <select id="reviewTypeSelect">
-            <option value="abstract">Abstracts</option>
-            <option value="award">Award nominations</option>
-          </select>
           <select id="filterCategory"><option value="">All categories</option></select>
           <select id="filterTheme"><option value="">All themes</option></select>
-          <select id="filterAwardCategory" hidden><option value="">All categories</option></select>
-          <span class="spacer"></span>
-          <a class="dash-signout" href="../">Submissions home</a>
-          <button type="button" class="dash-signout" id="signOutBtn">Log out</button>
         </div>
 
         <div id="submissionList"><p class="dash-empty">Loading…</p></div>
